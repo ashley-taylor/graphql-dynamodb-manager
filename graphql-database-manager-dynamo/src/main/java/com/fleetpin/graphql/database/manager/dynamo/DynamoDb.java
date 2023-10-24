@@ -34,11 +34,11 @@ import com.fleetpin.graphql.database.manager.util.BackupItem;
 import com.fleetpin.graphql.database.manager.util.CompletableFutureUtil;
 import com.fleetpin.graphql.database.manager.util.HistoryCoreUtil;
 import com.fleetpin.graphql.database.manager.util.TableCoreUtil;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
+import graphql.VisibleForTesting;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -57,6 +57,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.checkerframework.checker.units.qual.C;
 import org.reflections.Reflections;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeAction;
@@ -231,7 +232,7 @@ public class DynamoDb extends DatabaseDriver {
 			.toArray(CompletableFuture[]::new);
 		return CompletableFuture.allOf(all);
 	}
-	
+
 	private CompletableFuture<?> nonConditionalBulkPutChunk(List<PutValue> items) {
 		var writeRequests = items.stream().map(i -> buildWriteRequest(i)).collect(Collectors.toList());
 		var data = Map.of(entityTable, writeRequests);
@@ -254,57 +255,55 @@ public class DynamoDb extends DatabaseDriver {
 	}
 
 	private CompletableFuture<?> nonConditionalBulkWrite(List<PutValue> items) {
-		
-		
-		if(items.isEmpty()) {
+		if (items.isEmpty()) {
 			return CompletableFuture.completedFuture(null);
 		}
-		if(items.size() > batchWriteSize) {
-		
+		if (items.size() > batchWriteSize) {
 			ArrayListMultimap<String, PutValue> byPartition = ArrayListMultimap.create();
-			items.stream().forEach(t -> {
-				var key = mapWithKeys(t.getOrganisationId(), t.getEntity());
-				byPartition.put(key.get("organisationId").s(), t);
-			});
-			
-			var futures = byPartition.keySet().stream().map(key -> {
-				var partition = byPartition.get(key);
-				
-				var toReturn = new CompletableFuture();
-				sendBackToBack(toReturn, Lists.partition(partition, batchWriteSize).iterator());
-				return toReturn;
-			}).toArray(CompletableFuture[]::new);
-			
+			items
+				.stream()
+				.forEach(t -> {
+					var key = mapWithKeys(t.getOrganisationId(), t.getEntity());
+					byPartition.put(key.get("organisationId").s(), t);
+				});
+
+			var futures = byPartition
+				.keySet()
+				.stream()
+				.map(key -> {
+					var partition = byPartition.get(key);
+
+					var toReturn = new CompletableFuture();
+					sendBackToBack(toReturn, Lists.partition(partition, batchWriteSize).iterator());
+					return toReturn;
+				})
+				.toArray(CompletableFuture[]::new);
+
 			return CompletableFuture.allOf(futures);
-		}else {
+		} else {
 			return nonConditionalBulkPutChunk(items);
 		}
 	}
 
 	private void sendBackToBack(CompletableFuture<?> atEnd, Iterator<List<PutValue>> it) {
-		
-		nonConditionalBulkPutChunk(it.next()).whenComplete((response, error) -> {
-			
-			if(error != null) {
-				while(it.hasNext()) {
-					var f = it.next();
-					for(var e: f) {
-						e.fail(error);
+		nonConditionalBulkPutChunk(it.next())
+			.whenComplete((response, error) -> {
+				if (error != null) {
+					while (it.hasNext()) {
+						var f = it.next();
+						for (var e : f) {
+							e.fail(error);
+						}
+					}
+					atEnd.completeExceptionally(error);
+				} else {
+					if (it.hasNext()) {
+						sendBackToBack(atEnd, it);
+					} else {
+						atEnd.complete(null);
 					}
 				}
-				atEnd.completeExceptionally(error);
-			}else {
-				if(it.hasNext()) {
-					sendBackToBack(atEnd, it);
-				}else {
-					atEnd.complete(null);
-				}
-				
-				
-			}
-			
-		});
-		
+			});
 	}
 
 	private CompletableFuture<?> putItems(int count, Map<String, List<WriteRequest>> data) {
@@ -337,9 +336,9 @@ public class DynamoDb extends DatabaseDriver {
 			var nonConditional = values.stream().filter(v -> !v.getCheck()).collect(Collectors.toList());
 
 			var conditionalFuture = CompletableFuture.allOf(conditional.stream().map(part -> conditionalBulkWrite(part)).toArray(CompletableFuture[]::new));
-			
+
 			var nonConditionalFuture = nonConditionalBulkWrite(nonConditional);
-			
+
 			return CompletableFuture.allOf(conditionalFuture, nonConditionalFuture);
 		} catch (Exception e) {
 			for (var v : values) {
@@ -371,7 +370,6 @@ public class DynamoDb extends DatabaseDriver {
 
 		Map<String, AttributeValue> links = new HashMap<>();
 		getLinks(entity)
-			.asMap()
 			.forEach((table, link) -> {
 				if (!link.isEmpty()) {
 					links.put(table, AttributeValue.builder().ss(link).build());
@@ -1230,7 +1228,6 @@ public class DynamoDb extends DatabaseDriver {
 			.builder()
 			.m(
 				getLinks(entity)
-					.asMap()
 					.entrySet()
 					.stream()
 					.filter(entry -> !entry.getValue().contains(targetId) && !entry.getKey().equals(table(clazz)))
@@ -1311,33 +1308,35 @@ public class DynamoDb extends DatabaseDriver {
 
 		//after we successfully clear out our object we clear the remote references
 		return clearEntity.thenCompose(r -> {
-			CompletableFuture<?> future = CompletableFuture.completedFuture(null);
-
 			var val = AttributeValue.builder().ss(entity.getId()).build();
 			String source = table(entity.getClass());
-			for (var link : getLinks(entity).entries()) {
-				var targetIdAttribute = AttributeValue.builder().s(link.getKey() + ":" + link.getValue()).build();
-				Map<String, AttributeValue> targetKey = new HashMap<>();
-				targetKey.put("organisationId", organisationIdAttribute);
-				targetKey.put("id", targetIdAttribute);
+			CompletableFuture<?> future = getLinks(entity)
+				.entrySet()
+				.stream()
+				.flatMap(s -> s.getValue().stream().map(v -> Map.entry(s.getKey(), v)))
+				.map(link -> {
+					var targetIdAttribute = AttributeValue.builder().s(link.getKey() + ":" + link.getValue()).build();
+					Map<String, AttributeValue> targetKey = new HashMap<>();
+					targetKey.put("organisationId", organisationIdAttribute);
+					targetKey.put("id", targetIdAttribute);
 
-				Map<String, AttributeValue> v = new HashMap<>();
-				v.put(":val", val);
-				v.put(":revisionIncrement", REVISION_INCREMENT);
+					Map<String, AttributeValue> v = new HashMap<>();
+					v.put(":val", val);
+					v.put(":revisionIncrement", REVISION_INCREMENT);
 
-				Map<String, String> k = new HashMap<>();
-				k.put("#table", source);
+					Map<String, String> k = new HashMap<>();
+					k.put("#table", source);
 
-				var destination = client.updateItem(request ->
-					request
-						.tableName(entityTable)
-						.key(targetKey)
-						.updateExpression("DELETE links.#table :val ADD revision :revisionIncrement")
-						.expressionAttributeNames(k)
-						.expressionAttributeValues(v)
-				);
-				future = future.thenCombine(destination, (a, b) -> b);
-			}
+					return client.updateItem(request ->
+						request
+							.tableName(entityTable)
+							.key(targetKey)
+							.updateExpression("DELETE links.#table :val ADD revision :revisionIncrement")
+							.expressionAttributeNames(k)
+							.expressionAttributeValues(v)
+					);
+				})
+				.reduce(CompletableFuture.completedFuture(null), (a, b) -> a.thenCombine(b, (c, d) -> d));
 			getLinks(entity).clear();
 			return future.thenApply(__ -> r);
 		});
