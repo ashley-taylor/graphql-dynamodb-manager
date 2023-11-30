@@ -30,7 +30,7 @@ public class DynamoItem implements Comparable<DynamoItem> {
 	private final Map<String, Set<String>> links;
 	private String organisationId;
 
-	DynamoItem(String table, Map<String, AttributeValue> item) {
+	public DynamoItem(String table, Map<String, AttributeValue> item) {
 		this.table = table;
 		this.item = item;
 
