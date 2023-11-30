@@ -12,11 +12,7 @@
 
 package com.fleetpin.graphql.database.manager.dynamo;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fleetpin.graphql.database.manager.DatabaseDriver;
 import com.fleetpin.graphql.database.manager.DatabaseManager;
 import com.google.common.base.Preconditions;

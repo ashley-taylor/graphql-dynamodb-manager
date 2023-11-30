@@ -66,7 +66,7 @@ public class QueryHistoryBuilder<V extends Table> {
 
 	private void checkArgument(boolean pass, String msg) {
 		if (!pass) {
-			throw new RuntimeException(msg);
+			throw new IllegalArgumentException(msg);
 		}
 	}
 
