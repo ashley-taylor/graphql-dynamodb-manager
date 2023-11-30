@@ -13,6 +13,7 @@
 package com.fleetpin.graphql.database.manager;
 
 import com.fleetpin.graphql.database.manager.util.BackupItem;
+import com.fleetpin.graphql.database.manager.util.HistoryBackupItem;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -43,7 +44,11 @@ public abstract class DatabaseDriver {
 
 	public abstract CompletableFuture<Void> restoreBackup(List<BackupItem> entities);
 
+	public abstract CompletableFuture<Void> restoreHistoryBackup(List<HistoryBackupItem> entities);
+
 	public abstract CompletableFuture<List<BackupItem>> takeBackup(String organisationId);
+
+	public abstract CompletableFuture<List<HistoryBackupItem>> takeHistoryBackup(String organisationId);
 
 	public abstract <T extends Table> CompletableFuture<List<T>> queryHistory(DatabaseQueryHistoryKey<T> key);
 
