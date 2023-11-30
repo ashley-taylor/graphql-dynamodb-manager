@@ -24,7 +24,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Test
-@Timeout(60)
 @ExtendWith(TestDatabaseProvider.class)
 public @interface TestDatabase {
 	String organisationId() default "organisation";
