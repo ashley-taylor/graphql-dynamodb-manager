@@ -815,23 +815,38 @@ public class DynamoDb extends DatabaseDriver {
 		var id = keys.get("id");
 		Map<String, AttributeValue> keyConditions = new HashMap<>();
 		keyConditions.put(":organisationId", organisationIdAttribute);
-		if (id != null && !id.s().isEmpty()) {
-			keyConditions.put(":table", id);
+
+		String index = null;
+		Boolean consistentRead = true;
+		if (id != null && !id.s().trim().isEmpty()) {
+            index = null;
+            keyConditions.put(":table", id);
+		} else if (query.getThreadIndex() != null && query.getThreadCount() != null) {
+			consistentRead = false;
+			index = "parallelIndex2";
+			keyConditions.put(":hash", AttributeValue.builder().s(toPaddedBinary(query.getThreadIndex(), query.getThreadCount())).build());
 		}
 
 		var s = new DynamoQuerySubscriber(table, query.getLimit());
+		Boolean finalConsistentRead = consistentRead;
+		String finalIndex = index;
 		client
 			.queryPaginator(r -> {
 				r
 					.tableName(table)
-					.consistentRead(true)
+					.indexName(finalIndex)
+					.consistentRead(finalConsistentRead)
 					.expressionAttributeValues(keyConditions)
 					.applyMutation(b -> {
-						if (id == null || id.s().isEmpty()) {
-							b.keyConditionExpression("organisationId = :organisationId");
-						} else {
-							b.keyConditionExpression("organisationId = :organisationId AND begins_with(id, :table)");
+						var conditionalExpression = "organisationId = :organisationId";
+
+						if (keyConditions.containsKey(":table")) {
+							conditionalExpression += " AND begins_with(id, :table)";
+						} else if (keyConditions.containsKey(":hash")) {
+							conditionalExpression += " AND begins_with(parallelHash, :hash)";
 						}
+
+						b.keyConditionExpression(conditionalExpression);
 
 						if (query.getLimit() != null) {
 							b.limit(query.getLimit());
@@ -1576,6 +1591,15 @@ public class DynamoDb extends DatabaseDriver {
 			item.put("parallelHash", AttributeValue.builder().s(parallelHash(tmpId)).build());
 		}
 		return item;
+	}
+
+	public static String toPaddedBinary(int number, int powerOfTwo) {
+		var paddingLength = (int)((Math.log(powerOfTwo) / Math.log(2)));
+        StringBuilder binaryString = new StringBuilder(Integer.toBinaryString(number));
+		while (binaryString.length() < paddingLength - 1) {
+			binaryString.insert(0, "0");
+		}
+		return binaryString.toString();
 	}
 
 	@VisibleForTesting
