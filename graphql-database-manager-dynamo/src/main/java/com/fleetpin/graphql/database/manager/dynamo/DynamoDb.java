@@ -816,14 +816,18 @@ public class DynamoDb extends DatabaseDriver {
 		Map<String, AttributeValue> keyConditions = new HashMap<>();
 		keyConditions.put(":organisationId", organisationIdAttribute);
 
-		String index = null;
-		Boolean consistentRead = true;
+		String index = query.getIndex();
+		boolean consistentRead = true;
+
 		if (id != null && !id.s().trim().isEmpty()) {
             index = null;
             keyConditions.put(":table", id);
 		} else if (query.getThreadIndex() != null && query.getThreadCount() != null) {
 			consistentRead = false;
-			index = "parallelIndex2";
+
+			if (index == null) {
+				index = "parallelIndex";
+			}
 			keyConditions.put(":hash", AttributeValue.builder().s(toPaddedBinary(query.getThreadIndex(), query.getThreadCount())).build());
 		}
 
