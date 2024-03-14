@@ -828,6 +828,7 @@ public class DynamoDb extends DatabaseDriver {
 			if (index == null) {
 				index = "parallelIndex";
 			}
+			
 			keyConditions.put(":hash", AttributeValue.builder().s(toPaddedBinary(query.getThreadIndex(), query.getThreadCount())).build());
 		}
 
@@ -1600,7 +1601,7 @@ public class DynamoDb extends DatabaseDriver {
 	public static String toPaddedBinary(int number, int powerOfTwo) {
 		var paddingLength = (int)((Math.log(powerOfTwo) / Math.log(2)));
         StringBuilder binaryString = new StringBuilder(Integer.toBinaryString(number));
-		while (binaryString.length() < paddingLength - 1) {
+		while (binaryString.length() < paddingLength) {
 			binaryString.insert(0, "0");
 		}
 		return binaryString.toString();
