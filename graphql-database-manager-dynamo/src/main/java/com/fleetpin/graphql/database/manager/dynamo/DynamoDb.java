@@ -100,6 +100,10 @@ public class DynamoDb extends DatabaseDriver {
 
 	private final Map<String, HashQueryBuilder> hashKeyExpander;
 
+	public DynamoDb(ObjectMapper mapper, List<String> entityTables, List<String> historyTables, DynamoDbAsyncClient client, Supplier<String> idGenerator) {
+		this(mapper, entityTables, null, client, idGenerator, BATCH_WRITE_SIZE, MAX_RETRY, true, true, null, null);
+	}
+
 	public DynamoDb(ObjectMapper mapper, List<String> entityTables, List<String> historyTables, DynamoDbAsyncClient client, Supplier<String> idGenerator, String parallelHashIndex) {
 		this(mapper, entityTables, null, client, idGenerator, BATCH_WRITE_SIZE, MAX_RETRY, true, true, null, parallelHashIndex);
 	}
