@@ -105,6 +105,27 @@ final class DynamoDbQueryBuilderTest {
 		}
 	}
 
+	@TestDatabase
+	void parallelQuery(final Database db) throws InterruptedException, ExecutionException {
+		var n = 5;
+		List<String> ids = Stream.iterate(1, i -> i + 1).map(i -> getId(i)).limit(n).collect(Collectors.toList());
+
+		var l = Stream
+				.iterate(1, i -> i + 1)
+				.limit(n)
+				// Must pick a sufficiently sized matrix in order to force multiple pages to test limit, 100 works well
+				.map(i -> new BigData(ids.get(i - 1), "bigdata-" + i.toString(), createMatrix(100)))
+				.collect(Collectors.toList());
+
+		l.stream().map(db::put).forEach(this::swallow);
+		db.putGlobal(new BigData(getId(999), "big global", createMatrix(100)));
+
+		var result1 = db.query(BigData.class, builder -> builder.threadCount(2).threadIndex(0)).get();
+		var result2 = db.query(BigData.class, builder -> builder.threadCount(2).threadIndex(1)).get();
+
+		Assertions.assertEquals(100, result1.size() + result2.size());
+	}
+
 	// This test tests querying against large pieces of data which force Dynamoclient to return multiple pages.
 	@TestDatabase
 	void testBig(final Database db) throws InterruptedException, ExecutionException {
