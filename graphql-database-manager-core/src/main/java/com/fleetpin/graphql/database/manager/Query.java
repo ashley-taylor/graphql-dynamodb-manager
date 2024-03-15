@@ -4,14 +4,13 @@ import java.util.Objects;
 
 public class Query<T extends Table> {
 	private final Class<T> type;
-	private final String index;
 	private final String startsWith;
 	private final String after;
 	private final Integer limit;
 	private final Integer threadCount;
 	private final Integer threadIndex;
 
-	Query(Class<T> type, String startsWith, String after, Integer limit, String index, Integer threadCount, Integer threadIndex) {
+	Query(Class<T> type, String startsWith, String after, Integer limit, Integer threadCount, Integer threadIndex) {
 		if (type == null) {
 			throw new RuntimeException("type can not be null, did you forget to call .on(Table::class)?");
 		}
@@ -20,13 +19,18 @@ public class Query<T extends Table> {
 			throw new RuntimeException("Thread count must be a power of two");
 		}
 
+
+		if ((threadCount != null && threadIndex == null) || (threadCount == null && threadIndex != null)) {
+			throw new RuntimeException("Thread count and thread index must both be defined if you are doing a parallel request");
+		}
+
+
 		this.type = type;
 		this.startsWith = startsWith;
 		this.after = after;
 		this.limit = limit;
 		this.threadCount = threadCount;
 		this.threadIndex = threadIndex;
-		this.index = index;
 	}
 
 	public Class<T> getType() {
@@ -49,15 +53,13 @@ public class Query<T extends Table> {
 
 	public Integer getThreadIndex() { return threadIndex; }
 
-	public String getIndex() { return index; }
-
 	public boolean hasLimit() {
 		return getLimit() != null;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(after, limit, startsWith, type, index, threadIndex, threadCount);
+		return Objects.hash(after, limit, startsWith, type, threadIndex, threadCount);
 	}
 
 	@Override
@@ -72,8 +74,7 @@ public class Query<T extends Table> {
 			Objects.equals(startsWith, other.startsWith) &&
 			Objects.equals(type, other.type) &&
 			Objects.equals(threadCount, other.threadCount) &&
-			Objects.equals(threadIndex, other.threadIndex) &&
-			Objects.equals(index, other.index)
+			Objects.equals(threadIndex, other.threadIndex)
 		);
 	}
 

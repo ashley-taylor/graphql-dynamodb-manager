@@ -89,6 +89,8 @@ public class DynamoDb extends DatabaseDriver {
 	private final boolean hash;
 	private final String classPath;
 
+	private final String parallelHashIndex;
+
 	private final ConcurrentHashMap<Class<? extends Table>, Optional<Hash.HashExtractor>> extractorCache = new ConcurrentHashMap<>();
 
 	private enum BackupTableType {
@@ -98,8 +100,8 @@ public class DynamoDb extends DatabaseDriver {
 
 	private final Map<String, HashQueryBuilder> hashKeyExpander;
 
-	public DynamoDb(ObjectMapper mapper, List<String> entityTables, List<String> historyTables, DynamoDbAsyncClient client, Supplier<String> idGenerator) {
-		this(mapper, entityTables, null, client, idGenerator, BATCH_WRITE_SIZE, MAX_RETRY, true, true, null);
+	public DynamoDb(ObjectMapper mapper, List<String> entityTables, List<String> historyTables, DynamoDbAsyncClient client, Supplier<String> idGenerator, String parallelHashIndex) {
+		this(mapper, entityTables, null, client, idGenerator, BATCH_WRITE_SIZE, MAX_RETRY, true, true, null, parallelHashIndex);
 	}
 
 	public DynamoDb(
@@ -112,7 +114,8 @@ public class DynamoDb extends DatabaseDriver {
 		int maxRetry,
 		boolean globalEnabled,
 		boolean hash,
-		String classPath
+		String classPath,
+		String parallelHashIndex
 	) {
 		this.mapper = mapper;
 		this.entityTables = entityTables;
@@ -125,6 +128,7 @@ public class DynamoDb extends DatabaseDriver {
 		this.globalEnabled = globalEnabled;
 		this.hash = hash;
 		this.classPath = classPath;
+		this.parallelHashIndex = parallelHashIndex;
 
 		if (classPath != null) {
 			var tableObjects = new Reflections(classPath).getSubTypesOf(Table.class);
@@ -816,20 +820,16 @@ public class DynamoDb extends DatabaseDriver {
 		Map<String, AttributeValue> keyConditions = new HashMap<>();
 		keyConditions.put(":organisationId", organisationIdAttribute);
 
-		String index = query.getIndex();
+		String index = null;
 		boolean consistentRead = true;
 
-		if (id != null && !id.s().trim().isEmpty()) {
-            index = null;
-            keyConditions.put(":table", id);
-		} else if (query.getThreadIndex() != null && query.getThreadCount() != null) {
+		if (query.getThreadIndex() != null && query.getThreadCount() != null) {
 			consistentRead = false;
-
-			if (index == null) {
-				index = "parallelIndex";
-			}
-			
+			index = this.parallelHashIndex;
 			keyConditions.put(":hash", AttributeValue.builder().s(toPaddedBinary(query.getThreadIndex(), query.getThreadCount())).build());
+		} else if (id != null && !id.s().trim().isEmpty()) {
+			index = null;
+			keyConditions.put(":table", id);
 		}
 
 		var s = new DynamoQuerySubscriber(table, query.getLimit());
