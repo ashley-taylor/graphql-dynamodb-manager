@@ -16,8 +16,6 @@ public class DynamoQuerySubscriber implements Subscriber<QueryResponse> {
 	private final CompletableFuture<List<DynamoItem>> future = new CompletableFuture<List<DynamoItem>>();
 	private final String table;
 
-	private java.util.Map<String, software.amazon.awssdk.services.dynamodb.model.AttributeValue> lastEvaluatedKey;
-
 	protected DynamoQuerySubscriber(String table) {
 		this(table, null);
 	}
@@ -43,17 +41,6 @@ public class DynamoQuerySubscriber implements Subscriber<QueryResponse> {
 	@Override
 	public void onNext(QueryResponse r) {
 		try {
-//			var t = r.items();
-//
-//			if (t != null) {
-//				var tt = r.lastEvaluatedKey();
-//				var ttt = t.getLast();
-//			}
-
-			if (r.hasLastEvaluatedKey()) {
-				this.lastEvaluatedKey = r.lastEvaluatedKey();
-			}
-
 			var stream = r.items().stream();
 
 			if (togo != null) {
@@ -81,7 +68,6 @@ public class DynamoQuerySubscriber implements Subscriber<QueryResponse> {
 
 	@Override
 	public void onComplete() {
-		System.out.println(this.lastEvaluatedKey);
 		future.complete(stuff);
 	}
 
