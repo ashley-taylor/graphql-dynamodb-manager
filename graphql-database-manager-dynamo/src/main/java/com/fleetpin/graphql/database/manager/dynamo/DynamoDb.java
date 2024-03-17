@@ -826,17 +826,20 @@ public class DynamoDb extends DatabaseDriver {
 
 		String index = null;
 		boolean consistentRead = true;
-		boolean parallelRequest = false;
+		boolean parallelRequest;
 
 		if (query.getThreadIndex() != null && query.getThreadCount() != null) {
 			consistentRead = false;
 			parallelRequest = true;
 			index = this.parallelHashIndex;
 			keyConditions.put(":hash", AttributeValue.builder().s(toPaddedBinary(query.getThreadIndex(), query.getThreadCount())).build());
-		} else if (id != null && !id.s().trim().isEmpty()) {
-			index = null;
-			keyConditions.put(":table", id);
-		}
+		} else {
+            parallelRequest = false;
+            if (id != null && !id.s().trim().isEmpty()) {
+                index = null;
+                keyConditions.put(":table", id);
+            }
+        }
 
 		var s = new DynamoQuerySubscriber(table, query.getLimit());
 		Boolean finalConsistentRead = consistentRead;
