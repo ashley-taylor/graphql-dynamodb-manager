@@ -862,7 +862,9 @@ public class DynamoDb extends DatabaseDriver {
 						}
 
 						if (query.getAfter() != null) {
-							b.exclusiveStartKey(mapWithKeys(organisationId, query.getType(), query.getAfter()));
+							var start = mapWithKeys(organisationId, query.getType(), query.getAfter());
+							start.put("parallelHash", AttributeValue.builder().s(parallelHash(query.getAfter())).build());
+							b.exclusiveStartKey(start);
 						}
 					});
 			})
