@@ -476,7 +476,7 @@ public class DynamoDb extends DatabaseDriver {
 		for (String table : this.entityTables) {
 			items.put(table, KeysAndAttributes.builder().keys(entries).consistentRead(true).build());
 		}
-		return getItems(0, items, new Flattener(this.entityTables, false))
+		return getItems(0, items, Flattener.create(this.entityTables, false))
 			.thenApply(flattener -> {
 				var toReturn = new ArrayList<T>();
 				for (var key : keys) {
@@ -558,7 +558,7 @@ public class DynamoDb extends DatabaseDriver {
 		var future = CompletableFutureUtil.sequence(futures);
 
 		return future.thenApply(results -> {
-			var flattener = new Flattener(this.entityTables, false);
+			var flattener = Flattener.create(this.entityTables, false);
 
 			results.forEach(list -> flattener.addItems(list));
 			return flattener.results(mapper, key.getQuery().getType(), Optional.ofNullable(key.getQuery().getLimit()));
@@ -725,7 +725,7 @@ public class DynamoDb extends DatabaseDriver {
 				);
 		}
 		return future.thenApply(results -> {
-			var flattener = new Flattener(this.entityTables, true);
+			var flattener = Flattener.create(this.entityTables, true);
 			results.forEach(list -> flattener.addItems(list));
 			return flattener.results(mapper, type);
 		});
@@ -867,8 +867,10 @@ public class DynamoDb extends DatabaseDriver {
 						}
 
 						if (query.getAfter() != null) {
-							var start = mapWithKeys(organisationId, query.getType(), query.getAfter(), parallelRequest);
-							start.remove("hashed");
+							var start = mapWithKeys(organisationId, query.getType(), query.getAfter());
+							if (parallelRequest) {
+								start.put("parallelHash", AttributeValue.builder().s(parallelHash(query.getAfter())).build());
+							}
 							b.exclusiveStartKey(start);
 						}
 					});
