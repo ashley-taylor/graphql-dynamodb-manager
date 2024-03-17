@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 public abstract class Flattener {
+
 	public static Flattener create(List<String> entityTables, boolean b) {
 		if (entityTables.size() > 1) {
 			return new FlattenerMulti(entityTables, b);
@@ -31,7 +32,6 @@ public abstract class Flattener {
 	public abstract DynamoItem get(Optional<Hash.HashExtractor> extractor, Class<? extends Table> type, String id);
 
 	protected abstract void addItem(DynamoItem item);
-
 
 	public final void addItems(List<DynamoItem> list) {
 		list.forEach(item -> {
@@ -46,10 +46,9 @@ public abstract class Flattener {
 		});
 	}
 
-
-	public final  <T extends Table> List<T> results(ObjectMapper mapper, Class<T> type) {
+	public final <T extends Table> List<T> results(ObjectMapper mapper, Class<T> type) {
 		return results(mapper, type, Optional.empty());
 	}
 
-	public abstract  <T extends Table> List<T> results(ObjectMapper mapper, Class<T> type, Optional<Integer> limit);
+	public abstract <T extends Table> List<T> results(ObjectMapper mapper, Class<T> type, Optional<Integer> limit);
 }

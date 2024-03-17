@@ -16,12 +16,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fleetpin.graphql.database.manager.Table;
 import com.fleetpin.graphql.database.manager.annotations.Hash;
 import com.fleetpin.graphql.database.manager.util.TableCoreUtil;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-
 import java.util.*;
 import java.util.stream.Collectors;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 public final class FlattenerMulti extends Flattener {
+
 	private final Map<String, DynamoItem> lookup;
 	private final boolean includeOrganisationId;
 	private final List<String> tables;
@@ -55,7 +55,6 @@ public final class FlattenerMulti extends Flattener {
 			return got;
 		}
 	}
-
 
 	protected void addItem(DynamoItem item) {
 		lookup.merge(getId(item), item, this::merge);

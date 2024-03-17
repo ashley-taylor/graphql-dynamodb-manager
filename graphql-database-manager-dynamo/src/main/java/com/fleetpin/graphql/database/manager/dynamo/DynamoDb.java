@@ -104,7 +104,14 @@ public class DynamoDb extends DatabaseDriver {
 		this(mapper, entityTables, null, client, idGenerator, BATCH_WRITE_SIZE, MAX_RETRY, true, true, null, null);
 	}
 
-	public DynamoDb(ObjectMapper mapper, List<String> entityTables, List<String> historyTables, DynamoDbAsyncClient client, Supplier<String> idGenerator, String parallelHashIndex) {
+	public DynamoDb(
+		ObjectMapper mapper,
+		List<String> entityTables,
+		List<String> historyTables,
+		DynamoDbAsyncClient client,
+		Supplier<String> idGenerator,
+		String parallelHashIndex
+	) {
 		this(mapper, entityTables, null, client, idGenerator, BATCH_WRITE_SIZE, MAX_RETRY, true, true, null, parallelHashIndex);
 	}
 
@@ -834,12 +841,12 @@ public class DynamoDb extends DatabaseDriver {
 			index = this.parallelHashIndex;
 			keyConditions.put(":hash", AttributeValue.builder().s(toPaddedBinary(query.getThreadIndex(), query.getThreadCount())).build());
 		} else {
-            parallelRequest = false;
-            if (id != null && !id.s().trim().isEmpty()) {
-                index = null;
-                keyConditions.put(":table", id);
-            }
-        }
+			parallelRequest = false;
+			if (id != null && !id.s().trim().isEmpty()) {
+				index = null;
+				keyConditions.put(":table", id);
+			}
+		}
 
 		var s = new DynamoQuerySubscriber(table, query.getLimit());
 		Boolean finalConsistentRead = consistentRead;
@@ -1612,8 +1619,8 @@ public class DynamoDb extends DatabaseDriver {
 	}
 
 	public static String toPaddedBinary(int number, int powerOfTwo) {
-		var paddingLength = (int)((Math.log(powerOfTwo) / Math.log(2)));
-        StringBuilder binaryString = new StringBuilder(Integer.toBinaryString(number));
+		var paddingLength = (int) ((Math.log(powerOfTwo) / Math.log(2)));
+		StringBuilder binaryString = new StringBuilder(Integer.toBinaryString(number));
 		while (binaryString.length() < paddingLength) {
 			binaryString.insert(0, "0");
 		}

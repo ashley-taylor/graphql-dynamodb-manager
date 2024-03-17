@@ -16,12 +16,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fleetpin.graphql.database.manager.Table;
 import com.fleetpin.graphql.database.manager.annotations.Hash;
 import com.fleetpin.graphql.database.manager.util.TableCoreUtil;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-
 import java.util.*;
 import java.util.stream.Collectors;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 public final class FlattenerSingle extends Flattener {
+
 	private final Map<String, DynamoItem> lookup;
 	private final List<DynamoItem> order;
 	private final boolean includeOrganisationId;
@@ -55,12 +55,10 @@ public final class FlattenerSingle extends Flattener {
 		}
 	}
 
-
 	protected void addItem(DynamoItem item) {
 		lookup.put(getId(item), item);
 		order.add(item);
 	}
-
 
 	public <T extends Table> List<T> results(ObjectMapper mapper, Class<T> type, Optional<Integer> limit) {
 		return order.stream().limit(limit.orElse(Integer.MAX_VALUE)).map(t -> t.convertTo(mapper, type)).collect(Collectors.toList());
