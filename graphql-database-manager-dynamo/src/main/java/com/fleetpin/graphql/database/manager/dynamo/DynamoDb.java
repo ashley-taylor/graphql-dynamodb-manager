@@ -826,9 +826,11 @@ public class DynamoDb extends DatabaseDriver {
 
 		String index = null;
 		boolean consistentRead = true;
+		boolean parallelRequest = false;
 
 		if (query.getThreadIndex() != null && query.getThreadCount() != null) {
 			consistentRead = false;
+			parallelRequest = true;
 			index = this.parallelHashIndex;
 			keyConditions.put(":hash", AttributeValue.builder().s(toPaddedBinary(query.getThreadIndex(), query.getThreadCount())).build());
 		} else if (id != null && !id.s().trim().isEmpty()) {
@@ -863,7 +865,9 @@ public class DynamoDb extends DatabaseDriver {
 
 						if (query.getAfter() != null) {
 							var start = mapWithKeys(organisationId, query.getType(), query.getAfter());
-							start.put("parallelHash", AttributeValue.builder().s(parallelHash(query.getAfter())).build());
+							if (parallelRequest) {
+								start.put("parallelHash", AttributeValue.builder().s(parallelHash(query.getAfter())).build());
+							}
 							b.exclusiveStartKey(start);
 						}
 					});
