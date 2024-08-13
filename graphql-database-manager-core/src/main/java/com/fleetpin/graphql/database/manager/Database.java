@@ -326,7 +326,7 @@ public class Database {
 			try {
 				CompletableFuture.allOf(all).join();
 			} catch (Exception e) {
-				e.printStackTrace();
+				// swallow futures throw the same error
 			}
 		}
 	}
@@ -416,7 +416,7 @@ public class Database {
 		return Collections.unmodifiableSet(links);
 	}
 
-	public void handleFuture(CompletableFuture<?> future) {
+	private void handleFuture(CompletableFuture<?> future) {
 		if (future.isDone()) {
 			return;
 		}

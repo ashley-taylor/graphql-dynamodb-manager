@@ -213,33 +213,4 @@ final class DynamoDbInitializer {
 			.objectMapper(MAPPER)
 			.build();
 	}
-	// static Database getInMemoryDatabase(
-	// final String organisationId,
-	// final ConcurrentHashMap<DatabaseKey, Table> map,
-	// final CompletableFuture<Object> future
-	// ) {
-	// final var objectMapper = new ObjectMapper()
-	// .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-	// .registerModule(new ParameterNamesModule())
-	// .registerModule(new Jdk8Module())
-	// .registerModule(new JavaTimeModule())
-	// .disable(DeserializationFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
-	// .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-	// .disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
-	// .disable(SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS)
-	// .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-	//
-	// final var factory = new JsonNodeFactory(false);
-	//
-	// final Supplier<String> idGenerator = () -> UUID.randomUUID().toString();
-	//
-	// final var database = DynamoDbManager.builder()
-	// .tables("local")
-	// .dynamoDb(new InMemoryDynamoDb(objectMapper, factory, map, idGenerator))
-	// .build()
-	// .getDatabase(organisationId);
-	//
-	// database.start(future);
-	// return database;
-	// }
 }

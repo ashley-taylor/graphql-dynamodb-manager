@@ -73,19 +73,14 @@ final class DynamoDbIndexesTest {
 	@TestDatabase
 	void testSecondary(final Database db) throws InterruptedException, ExecutionException {
 		var list = db.querySecondary(SimpleTable.class, "garry").get();
-		System.out.println("123");
 		Assertions.assertEquals(0, list.size());
 		SimpleTable entry1 = new SimpleTable("garry", "john");
 		entry1 = db.put(entry1).get();
-		System.out.println("123");
 		Assertions.assertEquals("garry", entry1.getName());
 		Assertions.assertNotNull(entry1.getId());
 
-		System.out.println("HERHERHER");
-
 		list = db.querySecondary(SimpleTable.class, "garry").get();
 		Assertions.assertEquals(1, list.size());
-		System.out.println("123");
 
 		Assertions.assertEquals("garry", list.get(0).getName());
 		Assertions.assertEquals("garry", db.querySecondaryUnique(SimpleTable.class, "garry").get().getName());
