@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 
-public class DynamoDbQueryBuilderTest {
+final class DynamoDbQueryBuilderTest {
 
 	static class Ticket extends Table {
 
@@ -65,7 +65,7 @@ public class DynamoDbQueryBuilderTest {
 		Assertions.assertEquals(10, result2.size());
 	}
 
-	public static class BigData extends Table {
+	static class BigData extends Table {
 
 		private String name;
 		private Double[][] matrix;
@@ -75,17 +75,9 @@ public class DynamoDbQueryBuilderTest {
 			this.name = name;
 			this.matrix = matrix;
 		}
-
-		public String getName() {
-			return name;
-		}
-
-		public Double[][] getMatrix() {
-			return matrix;
-		}
 	}
 
-	public static Double[][] createMatrix(Integer size) {
+	private Double[][] createMatrix(Integer size) {
 		Double[][] m = new Double[size][size];
 		Random r = new Random();
 		Double k = r.nextDouble();
@@ -105,7 +97,7 @@ public class DynamoDbQueryBuilderTest {
 		return String.format("%04d", i);
 	}
 
-	public static void swallow(CompletableFuture<?> f) {
+	private void swallow(CompletableFuture<?> f) {
 		try {
 			f.get();
 		} catch (InterruptedException | ExecutionException e) {
@@ -126,7 +118,7 @@ public class DynamoDbQueryBuilderTest {
 			.map(i -> new BigData(ids.get(i - 1), "bigdata-" + i.toString(), createMatrix(100)))
 			.collect(Collectors.toList());
 
-		l.stream().map(db::put).forEach(DynamoDbQueryBuilderTest::swallow);
+		l.stream().map(db::put).forEach(this::swallow);
 
 		var result = db.query(BigData.class, builder -> builder.after(getId(456)).limit(100)).get();
 
@@ -147,7 +139,7 @@ public class DynamoDbQueryBuilderTest {
 			.map(i -> new BigData(ids.get(i - 1), "bigdata-" + i.toString(), createMatrix(100)))
 			.collect(Collectors.toList());
 
-		l.stream().map(db::put).forEach(DynamoDbQueryBuilderTest::swallow);
+		l.stream().map(db::put).forEach(this::swallow);
 		db.putGlobal(new BigData(getId(999), "big global", createMatrix(100)));
 
 		var result = db.query(BigData.class, builder -> builder.after(getId(200)).limit(100)).get();

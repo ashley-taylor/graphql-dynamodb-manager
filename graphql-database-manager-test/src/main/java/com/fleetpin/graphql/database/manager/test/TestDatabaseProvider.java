@@ -166,7 +166,7 @@ public final class TestDatabaseProvider implements ParameterResolver, BeforeEach
 					if (parameter.getType().isAssignableFrom(DynamoDbManager.class)) {
 						return createDynamoDbManager(client, streamClient, parameter, withHistory, hashed, classPath, objectMapper);
 					} else if (parameter.getType().isAssignableFrom(HistoryProcessor.class)) {
-						return new HistoryProcessor(client, streamClient, parameter, organisationId);
+						return new HistoryProcessor(wrapper.client, streamClient, parameter, organisationId);
 					} else if (parameter.getType().isAssignableFrom(DynamoDbAsyncClient.class)) {
 						return wrapper.clientAsync;
 					} else if (parameter.getType().isAssignableFrom(DynamoDbClient.class)) {

@@ -12,21 +12,18 @@
 
 package com.fleetpin.graphql.database.manager.test.hashed;
 
-import static com.fleetpin.graphql.database.manager.test.DynamoDbQueryBuilderTest.createMatrix;
-
 import com.fleetpin.graphql.database.manager.Database;
 import com.fleetpin.graphql.database.manager.Table;
 import com.fleetpin.graphql.database.manager.annotations.Hash;
-import com.fleetpin.graphql.database.manager.test.DynamoDbQueryBuilderTest;
-import com.fleetpin.graphql.database.manager.test.DynamoDbQueryBuilderTest.BigData;
-import com.fleetpin.graphql.database.manager.test.TestDatabase;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 
-final class DynamoDbQueryBuilderHashTest {
+final class DynamoDbQueryBuilderTest {
 
 	@Hash(SimplerHasher.class)
 	static class Ticket extends Table {
@@ -45,6 +42,42 @@ final class DynamoDbQueryBuilderHashTest {
 		@Override
 		public String toString() {
 			return "Ticket{" + "id='" + getId() + '\'' + ", value='" + value + '\'' + '}';
+		}
+	}
+
+	static class BigData extends Table {
+
+		private String name;
+		private Double[][] matrix;
+
+		public BigData(String id, String name, Double[][] matrix) {
+			setId(id);
+			this.name = name;
+			this.matrix = matrix;
+		}
+	}
+
+	private Double[][] createMatrix(Integer size) {
+		Double[][] m = new Double[size][size];
+		Random r = new Random();
+		Double k = r.nextDouble();
+		m[0][0] = r.nextDouble();
+		for (int i = 0; i < m.length; i++) {
+			for (int j = 0; j < m[i].length; j++) {
+				if (i == 0 && j == 0) continue; else if (j == 0) {
+					m[i][j] = m[i - 1][m[i - 1].length - 1] + k;
+				} else m[i][j] = m[i][j - 1] + k;
+			}
+		}
+
+		return m;
+	}
+
+	private void swallow(CompletableFuture<?> f) {
+		try {
+			f.get();
+		} catch (InterruptedException | ExecutionException e) {
+			throw new RuntimeException();
 		}
 	}
 
@@ -70,6 +103,10 @@ final class DynamoDbQueryBuilderHashTest {
 		Assertions.assertEquals(10, result2.size());
 	}
 
+	static String getId(int i) {
+		return String.format("%04d", i);
+	}
+
 	@TestDatabase
 	void parallelQuery(final Database db) throws InterruptedException, ExecutionException {
 		var n = 20;
@@ -82,7 +119,7 @@ final class DynamoDbQueryBuilderHashTest {
 			.map(i -> new BigData(ids.get(i - 1), "bigdata-" + i.toString(), createMatrix(100)))
 			.collect(Collectors.toList());
 
-		l.stream().map(db::put).forEach(DynamoDbQueryBuilderTest::swallow);
+		l.stream().map(db::put).forEach(this::swallow);
 
 		var allItems = db.query(BigData.class, builder -> builder).get();
 		var result1 = db.query(BigData.class, builder -> builder.threadCount(2).threadIndex(0)).get();
@@ -93,8 +130,8 @@ final class DynamoDbQueryBuilderHashTest {
 		Assertions.assertNotEquals(20, result1.size());
 		Assertions.assertNotEquals(20, result2.size());
 
-		var allItemsPage = Stream.concat(result1.stream(), result2.stream()).map(s -> s.getName()).collect(Collectors.toList());
-		Assertions.assertEquals(true, allItems.stream().map(s -> s.getName()).collect(Collectors.toList()).containsAll(allItemsPage));
+		var allItemsPage = Stream.concat(result1.stream(), result2.stream()).map(s -> s.name).collect(Collectors.toList());
+		Assertions.assertEquals(true, allItems.stream().map(s -> s.name).collect(Collectors.toList()).containsAll(allItemsPage));
 	}
 
 	@TestDatabase
@@ -109,7 +146,7 @@ final class DynamoDbQueryBuilderHashTest {
 			.map(i -> new BigData(ids.get(i - 1), "bigdata-" + i.toString(), createMatrix(100)))
 			.collect(Collectors.toList());
 
-		l.stream().map(db::put).forEach(DynamoDbQueryBuilderTest::swallow);
+		l.stream().map(db::put).forEach(this::swallow);
 
 		var allItems = db.query(BigData.class, builder -> builder).get();
 		var result1Page1 = db.query(BigData.class, builder -> builder.threadCount(2).threadIndex(0).limit(5)).get();
@@ -125,12 +162,8 @@ final class DynamoDbQueryBuilderHashTest {
 
 		var firstSide = Stream.concat(result1Page1.stream(), result2Page2.stream());
 		var secondSide = Stream.concat(result1Page3.stream(), result2Page4.stream());
-		var allItemsPage = Stream.concat(firstSide, secondSide).map(s -> s.getName()).collect(Collectors.toList());
+		var allItemsPage = Stream.concat(firstSide, secondSide).map(s -> s.name).collect(Collectors.toList());
 
-		Assertions.assertTrue(allItems.stream().map(s -> s.getName()).collect(Collectors.toList()).containsAll(allItemsPage));
-	}
-
-	static String getId(int i) {
-		return String.format("%04d", i);
+		Assertions.assertTrue(allItems.stream().map(s -> s.name).collect(Collectors.toList()).containsAll(allItemsPage));
 	}
 }
