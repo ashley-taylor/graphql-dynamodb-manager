@@ -10,20 +10,25 @@
  * the License.
  */
 
-package com.fleetpin.graphql.database.manager.test;
+package com.fleetpin.graphql.database.manager.test.hashed;
+
+import static com.fleetpin.graphql.database.manager.test.DynamoDbQueryBuilderTest.createMatrix;
 
 import com.fleetpin.graphql.database.manager.Database;
 import com.fleetpin.graphql.database.manager.Table;
+import com.fleetpin.graphql.database.manager.annotations.Hash;
+import com.fleetpin.graphql.database.manager.test.DynamoDbQueryBuilderTest;
+import com.fleetpin.graphql.database.manager.test.DynamoDbQueryBuilderTest.BigData;
+import com.fleetpin.graphql.database.manager.test.TestDatabase;
 import java.util.List;
-import java.util.Random;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 
-public class DynamoDbQueryBuilderTest {
+final class DynamoDbQueryBuilderHashTest {
 
+	@Hash(SimplerHasher.class)
 	static class Ticket extends Table {
 
 		private String value;
@@ -65,96 +70,67 @@ public class DynamoDbQueryBuilderTest {
 		Assertions.assertEquals(10, result2.size());
 	}
 
-	public static class BigData extends Table {
+	@TestDatabase
+	void parallelQuery(final Database db) throws InterruptedException, ExecutionException {
+		var n = 20;
+		List<String> ids = Stream.iterate(1, i -> i + 1).map(i -> getId(i)).limit(n).collect(Collectors.toList());
 
-		private String name;
-		private Double[][] matrix;
+		var l = Stream
+			.iterate(1, i -> i + 1)
+			.limit(n)
+			// Must pick a sufficiently sized matrix in order to force multiple pages to test limit, 100 works well
+			.map(i -> new BigData(ids.get(i - 1), "bigdata-" + i.toString(), createMatrix(100)))
+			.collect(Collectors.toList());
 
-		public BigData(String id, String name, Double[][] matrix) {
-			setId(id);
-			this.name = name;
-			this.matrix = matrix;
-		}
+		l.stream().map(db::put).forEach(DynamoDbQueryBuilderTest::swallow);
 
-		public String getName() {
-			return name;
-		}
+		var allItems = db.query(BigData.class, builder -> builder).get();
+		var result1 = db.query(BigData.class, builder -> builder.threadCount(2).threadIndex(0)).get();
+		var result2 = db.query(BigData.class, builder -> builder.threadCount(2).threadIndex(1)).get();
 
-		public Double[][] getMatrix() {
-			return matrix;
-		}
+		Assertions.assertEquals(20, allItems.size());
+		Assertions.assertEquals(20, result1.size() + result2.size());
+		Assertions.assertNotEquals(20, result1.size());
+		Assertions.assertNotEquals(20, result2.size());
+
+		var allItemsPage = Stream.concat(result1.stream(), result2.stream()).map(s -> s.getName()).collect(Collectors.toList());
+		Assertions.assertEquals(true, allItems.stream().map(s -> s.getName()).collect(Collectors.toList()).containsAll(allItemsPage));
 	}
 
-	public static Double[][] createMatrix(Integer size) {
-		Double[][] m = new Double[size][size];
-		Random r = new Random();
-		Double k = r.nextDouble();
-		m[0][0] = r.nextDouble();
-		for (int i = 0; i < m.length; i++) {
-			for (int j = 0; j < m[i].length; j++) {
-				if (i == 0 && j == 0) continue; else if (j == 0) {
-					m[i][j] = m[i - 1][m[i - 1].length - 1] + k;
-				} else m[i][j] = m[i][j - 1] + k;
-			}
-		}
+	@TestDatabase
+	void parallelPagingQuery(final Database db) throws InterruptedException, ExecutionException {
+		var n = 20;
+		List<String> ids = Stream.iterate(1, i -> i + 1).map(i -> getId(i)).limit(n).collect(Collectors.toList());
 
-		return m;
+		var l = Stream
+			.iterate(1, i -> i + 1)
+			.limit(n)
+			// Must pick a sufficiently sized matrix in order to force multiple pages to test limit, 100 works well
+			.map(i -> new BigData(ids.get(i - 1), "bigdata-" + i.toString(), createMatrix(100)))
+			.collect(Collectors.toList());
+
+		l.stream().map(db::put).forEach(DynamoDbQueryBuilderTest::swallow);
+
+		var allItems = db.query(BigData.class, builder -> builder).get();
+		var result1Page1 = db.query(BigData.class, builder -> builder.threadCount(2).threadIndex(0).limit(5)).get();
+		var result2Page2 = db.query(BigData.class, builder -> builder.threadCount(2).threadIndex(1).limit(5)).get();
+
+		Assertions.assertEquals(20, allItems.size());
+
+		var lastPageIndex1 = result1Page1.get(result1Page1.size() - 1).getId();
+		var result1Page3 = db.query(BigData.class, builder -> builder.threadCount(2).after(lastPageIndex1).threadIndex(0).limit(5)).get();
+
+		var lastPageIndex2 = result2Page2.get(result2Page2.size() - 1).getId();
+		var result2Page4 = db.query(BigData.class, builder -> builder.threadCount(2).after(lastPageIndex2).threadIndex(1).limit(5)).get();
+
+		var firstSide = Stream.concat(result1Page1.stream(), result2Page2.stream());
+		var secondSide = Stream.concat(result1Page3.stream(), result2Page4.stream());
+		var allItemsPage = Stream.concat(firstSide, secondSide).map(s -> s.getName()).collect(Collectors.toList());
+
+		Assertions.assertTrue(allItems.stream().map(s -> s.getName()).collect(Collectors.toList()).containsAll(allItemsPage));
 	}
 
 	static String getId(int i) {
 		return String.format("%04d", i);
-	}
-
-	public static void swallow(CompletableFuture<?> f) {
-		try {
-			f.get();
-		} catch (InterruptedException | ExecutionException e) {
-			throw new RuntimeException();
-		}
-	}
-
-	// This test tests querying against large pieces of data which force Dynamoclient to return multiple pages.
-	@TestDatabase
-	void testBig(final Database db) throws InterruptedException, ExecutionException {
-		var n = 1000;
-		List<String> ids = Stream.iterate(1, i -> i + 1).map(i -> getId(i)).limit(n).collect(Collectors.toList());
-
-		var l = Stream
-			.iterate(1, i -> i + 1)
-			.limit(n)
-			// Must pick a sufficiently sized matrix in order to force multiple pages to test limit, 100 works well
-			.map(i -> new BigData(ids.get(i - 1), "bigdata-" + i.toString(), createMatrix(100)))
-			.collect(Collectors.toList());
-
-		l.stream().map(db::put).forEach(DynamoDbQueryBuilderTest::swallow);
-
-		var result = db.query(BigData.class, builder -> builder.after(getId(456)).limit(100)).get();
-
-		Assertions.assertEquals(100, result.size());
-		Assertions.assertEquals("bigdata-457", result.get(0).name);
-		Assertions.assertEquals("bigdata-556", result.get(result.size() - 1).name);
-	}
-
-	@TestDatabase
-	void testBigPlusGlobal(final Database db) throws InterruptedException, ExecutionException {
-		var n = 400;
-		List<String> ids = Stream.iterate(1, i -> i + 1).map(i -> getId(i)).limit(n).collect(Collectors.toList());
-
-		var l = Stream
-			.iterate(1, i -> i + 1)
-			.limit(n)
-			// Must pick a sufficiently sized matrix in order to force multiple pages to test limit, 100 works well
-			.map(i -> new BigData(ids.get(i - 1), "bigdata-" + i.toString(), createMatrix(100)))
-			.collect(Collectors.toList());
-
-		l.stream().map(db::put).forEach(DynamoDbQueryBuilderTest::swallow);
-		db.putGlobal(new BigData(getId(999), "big global", createMatrix(100)));
-
-		var result = db.query(BigData.class, builder -> builder.after(getId(200)).limit(100)).get();
-
-		Assertions.assertEquals(100, result.size());
-		Assertions.assertEquals("bigdata-201", result.get(0).name);
-		Assertions.assertEquals("bigdata-300", result.get(result.size() - 1).name);
-		Assertions.assertFalse(result.stream().anyMatch(x -> x.name == "big global"));
 	}
 }
